@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) exit;
 
 class PMPro_Renewals
 {
-	var $days = array(7, 14, 28);
+	var $notification_days = array(7, 14, 28);
 
 	private static $instance = null;
 
@@ -35,47 +35,59 @@ class PMPro_Renewals
 
 	function __construct()
 	{
-		add_filter('pmpro_email_days_before_expiration', array($this, 'get_days_before_expiration'));
+		// requires pmpro plugin
+		if (!function_exists('pmpro_init'))
+			return;
+
+		// remove existing expiration warning
+		remove_all_actions('pmpro_cron_expiration_warnings');
+
+		add_action('pmpro_cron_expiration_warnings', array($this, 'pmpro_cron_expiration_warnings'));
 	}
 
-	function get_days_before_expiration()
-	{
-		$expiration = get_option('pmpro_days_before_expiration', 0);
-		$next = $expiration + 1;
-		$next >= count($this->days) and $next = 0;
-		update_option('pmpro_days_before_expiration', $next);
-		return $this->days[$expiration];
-	}
 
-	function reset_cron_expiration_warnings()
+	function pmpro_cron_expiration_warnings()
 	{
-		// clear existing cron job
-		wp_clear_scheduled_hook('pmpro_cron_expiration_warnings');
+		global $wpdb;
 
-		// set new cron job for each days
-		foreach ($this->days as $key => $val) {
-			wp_schedule_event(strtotime("+$key hours", current_time("timestamp")), 'daily', 'pmpro_cron_expiration_warnings');
+		//make sure we only run once a day
+		$today = date("Y-m-d H:i:s", current_time("timestamp"));
+
+		$notification_days = implode(',', $this->notification_days);
+
+		//look for memberships that are going to expire within one week (but we haven't emailed them within a week)
+		$sqlQuery = "SELECT mu.user_id, mu.membership_id, mu.startdate, mu.enddate
+FROM $wpdb->pmpro_memberships_users mu
+WHERE mu.status = 'active'
+AND mu.enddate IS NOT NULL
+AND mu.enddate <> ''
+AND mu.enddate <> '0000-00-00 00:00:00'
+AND DATEDIFF(mu.enddate, '$today') IN ($notification_days)
+ORDER BY mu.enddate";
+
+		if ( defined( 'PMPRO_CRON_LIMIT' ) ) {
+			$sqlQuery .= " LIMIT " . PMPRO_CRON_LIMIT;
+		}
+
+		$expiring_soon = $wpdb->get_results( $sqlQuery );
+
+		foreach ( $expiring_soon as $e ) {
+			$send_email = apply_filters( "pmpro_send_expiration_warning_email", true, $e->user_id );
+			if ( $send_email ) {
+				//send an email
+				$pmproemail = new PMProEmail();
+				$euser      = get_userdata( $e->user_id );
+				$pmproemail->sendMembershipExpiringEmail( $euser );
+
+				printf( __( "Membership expiring email sent to %s. ", "pmpro" ), $euser->user_email );
+			}
+
+			//update user meta so we don't email them again
+			update_user_meta( $e->user_id, "pmpro_expiration_notice", $today );
 		}
 	}
 
-    /*
-        Activation/Deactivation
-    */
-    function activation()
-    {
-        //schedule crons
-        $this->reset_cron_expiration_warnings();
-    }
-
-    function deactivation()
-    {
-        //remove crons
-        wp_clear_scheduled_hook('pmpro_cron_expiration_warnings');
-    }
 }
 
 //load pmpro renewals plugin
-$pmpro_renewals = PMPro_Renewals::get_instance();
-
-register_activation_hook(__FILE__, array($pmpro_renewals, 'activation'));
-register_deactivation_hook(__FILE__, array($pmpro_renewals, 'deactivation'));
+add_action('init', array('PMPro_Renewals', 'get_instance'), PHP_INT_MAX);
