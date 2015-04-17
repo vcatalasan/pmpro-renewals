@@ -13,6 +13,7 @@ if (!defined('ABSPATH')) exit;
 class PMPro_Renewals
 {
 	var $notification_days = array(7, 14, 28);
+	var $lapsed_member_role = 'lapsed_member';
 
 	private static $instance = null;
 
@@ -39,12 +40,22 @@ class PMPro_Renewals
 		if (!function_exists('pmpro_init'))
 			return;
 
+		$this->create_lapsed_member_role();
+
 		// remove existing expiration warning
 		remove_all_actions('pmpro_cron_expiration_warnings');
 
 		add_action('pmpro_cron_expiration_warnings', array($this, 'pmpro_cron_expiration_warnings'));
+		add_action('pmpro_membership_post_membership_expiry', array($this, 'pmpro_membership_post_membership_expiry'), 10, 2);
 	}
 
+	function create_lapsed_member_role()
+	{
+		global $wp_roles;
+
+		if (!in_array($this->lapsed_member_role, array_keys($wp_roles->roles)))
+			add_role($this->lapsed_member_role, 'Lapsed Member');
+	}
 
 	function pmpro_cron_expiration_warnings()
 	{
@@ -85,6 +96,17 @@ ORDER BY mu.enddate";
 			//update user meta so we don't email them again
 			update_user_meta( $e->user_id, "pmpro_expiration_notice", $today );
 		}
+	}
+
+	function pmpro_membership_post_membership_expiry($user_id, $membership_id)
+	{
+		// do nothing if user is an administrator
+		if (user_can($user_id,'administrator'))
+			return;
+
+		// change user role to lapsed_members
+		$user = new WP_User($user_id);
+		$user->set_role($this->lapsed_member_role);
 	}
 
 }
