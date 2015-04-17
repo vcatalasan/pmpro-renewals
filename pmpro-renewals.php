@@ -12,8 +12,9 @@ if (!defined('ABSPATH')) exit;
 
 class PMPro_Renewals
 {
+	static $lapsed_member_role = array( 'id' => 'lapsed_member', 'name' => 'Lapsed Member');
+
 	var $notification_days = array(7, 14, 28);
-	var $lapsed_member_role = 'lapsed_member';
 
 	private static $instance = null;
 
@@ -40,21 +41,11 @@ class PMPro_Renewals
 		if (!function_exists('pmpro_init'))
 			return;
 
-		$this->create_lapsed_member_role();
-
 		// remove existing expiration warning
 		remove_all_actions('pmpro_cron_expiration_warnings');
 
 		add_action('pmpro_cron_expiration_warnings', array($this, 'pmpro_cron_expiration_warnings'));
 		add_action('pmpro_membership_post_membership_expiry', array($this, 'pmpro_membership_post_membership_expiry'), 10, 2);
-	}
-
-	function create_lapsed_member_role()
-	{
-		global $wp_roles;
-
-		if (!in_array($this->lapsed_member_role, array_keys($wp_roles->roles)))
-			add_role($this->lapsed_member_role, 'Lapsed Member');
 	}
 
 	function pmpro_cron_expiration_warnings()
@@ -104,12 +95,37 @@ ORDER BY mu.enddate";
 		if (user_can($user_id,'administrator'))
 			return;
 
+		$lapsed_member_role_level = self::$lapsed_member_role['id'] . '_' . $membership_id;
+
 		// change user role to lapsed_members
 		$user = new WP_User($user_id);
-		$user->set_role($this->lapsed_member_role);
+		$user->set_role($lapsed_member_role_level);
 	}
 
+	function create_lapsed_member_roles()
+	{
+		global $wp_roles, $membership_levels;
+
+		foreach ($membership_levels as $level) {
+			$lapsed_member_role_level = self::$lapsed_member_role['id'] . '_' . $level->id;
+			$lapsed_member_role_level_name = $level->name . ' ' . self::$lapsed_member_role['name'];
+			if ( ! in_array($lapsed_member_role_level, array_keys( $wp_roles->roles ) ) ) {
+				add_role( $lapsed_member_role_level, $lapsed_member_role_level_name );
+			}
+		}
+	}
+
+	public static function plugin_activation()
+	{
+		// requires pmpro plugin
+		if (!function_exists('pmpro_init'))
+			return;
+
+		self::create_lapsed_member_roles();
+	}
 }
 
 //load pmpro renewals plugin
 add_action('init', array('PMPro_Renewals', 'get_instance'), PHP_INT_MAX);
+
+register_activation_hook(__FILE__, array('PMPro_Renewals', 'plugin_activation'));
