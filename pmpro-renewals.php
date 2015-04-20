@@ -45,6 +45,7 @@ class PMPro_Renewals
 		remove_all_actions('pmpro_cron_expiration_warnings');
 
 		add_action('pmpro_cron_expiration_warnings', array($this, 'pmpro_cron_expiration_warnings'));
+        add_filter('pmpro_send_expiration_warning_email', array($this, 'pmpro_send_expiration_warning_email'), 10, 2);
 		add_action('pmpro_membership_post_membership_expiry', array($this, 'pmpro_membership_post_membership_expiry'), 10, 2);
 	}
 
@@ -88,6 +89,14 @@ ORDER BY mu.enddate";
 			update_user_meta( $e->user_id, "pmpro_expiration_notice", $today );
 		}
 	}
+
+    function pmpro_send_expiration_warning_email($send_email, $user_id)
+    {
+        // do not send email if notification has already been sent today
+        $expiration_notice = date('Y-m-d', strtotime(get_user_meta($user_id, 'pmpro_expiration_notice', true)));
+        $today = date('Y-m-d', current_time('timestamp'));
+        return $send_email and $expiration_notice !== $today;
+    }
 
 	function pmpro_membership_post_membership_expiry($user_id, $membership_id)
 	{
