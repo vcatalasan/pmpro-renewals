@@ -41,12 +41,39 @@ class PMPro_Renewals
 		if (!function_exists('pmpro_init'))
 			return;
 
+		// set default values
+		$this->notification_days = explode(',', get_option('notification_days', implode(',', $this->notification_days)));
+
 		// remove existing expiration warning
 		remove_all_actions('pmpro_cron_expiration_warnings');
 
 		add_action('pmpro_cron_expiration_warnings', array($this, 'pmpro_cron_expiration_warnings'));
         add_filter('pmpro_send_expiration_warning_email', array($this, 'pmpro_send_expiration_warning_email'), 10, 2);
 		add_action('pmpro_membership_post_membership_expiry', array($this, 'pmpro_membership_post_membership_expiry'), 10, 2);
+
+		add_action('admin_menu', array($this, 'renewals_menu'));
+	}
+
+	function create_lapsed_member_roles()
+	{
+		global $wp_roles, $membership_levels;
+
+		foreach ($membership_levels as $level) {
+			$lapsed_member_role_level = self::$lapsed_member_role['id'] . '_' . $level->id;
+			$lapsed_member_role_level_name = $level->name . ' ' . self::$lapsed_member_role['name'];
+			if ( ! in_array($lapsed_member_role_level, array_keys( $wp_roles->roles ) ) ) {
+				add_role( $lapsed_member_role_level, $lapsed_member_role_level_name );
+			}
+		}
+	}
+
+	public static function plugin_activation()
+	{
+		// requires pmpro plugin
+		if (!function_exists('pmpro_init'))
+			return;
+
+		self::create_lapsed_member_roles();
 	}
 
 	function pmpro_cron_expiration_warnings()
@@ -111,27 +138,36 @@ ORDER BY mu.enddate";
 		$user->set_role($lapsed_member_role_level);
 	}
 
-	function create_lapsed_member_roles()
-	{
-		global $wp_roles, $membership_levels;
 
-		foreach ($membership_levels as $level) {
-			$lapsed_member_role_level = self::$lapsed_member_role['id'] . '_' . $level->id;
-			$lapsed_member_role_level_name = $level->name . ' ' . self::$lapsed_member_role['name'];
-			if ( ! in_array($lapsed_member_role_level, array_keys( $wp_roles->roles ) ) ) {
-				add_role( $lapsed_member_role_level, $lapsed_member_role_level_name );
-			}
-		}
+	function renewals_menu()
+	{
+		add_submenu_page('pmpro-membershiplevels',
+			__('Membership Renewal Settings', 'pmpro-renewal'),
+			__('Renewal Settings', 'pmpro-renewal'),
+			'manage_options',
+			'pmpro_renewal_settings',
+			array($this, 'renewals_page')
+			);
 	}
 
-	public static function plugin_activation()
+	// show form
+	function renewals_page()
 	{
-		// requires pmpro plugin
-		if (!function_exists('pmpro_init'))
-			return;
-
-		self::create_lapsed_member_roles();
+		$_POST['update'] == 'Update' and $this->notification_days = $_POST['notification_days'] and update_option('notification_days', $this->notification_days);
+		?>
+		<div class="wrap">
+			<h2>Membership Renewal Settings</h2>
+			<form method="post">
+				<p>
+					<label>Notification days:</label>
+					<input type="text" name="notification_days" value="<?php echo get_option('notification_days', implode(',', $this->notification_days)) ?>" />
+					<input type="submit" name="update" value="Update" />
+				</p>
+			</form>
+		</div>
+	<?php
 	}
+
 }
 
 //load pmpro renewals plugin
