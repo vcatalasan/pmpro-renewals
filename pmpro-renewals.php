@@ -18,6 +18,11 @@ class PMPro_Renewals
 
 	private static $instance = null;
 
+	// required plugins to used in this application
+	static $required_plugins = array(
+		'Paid Membership Pro' => 'paid-memberships-pro/paid-memberships-pro.php'
+	);
+
 	/**
 	 * Return an instance of this class.
 	 *
@@ -37,9 +42,7 @@ class PMPro_Renewals
 
 	function __construct()
 	{
-		// requires pmpro plugin
-		if (!function_exists('pmpro_init'))
-			return;
+		if (!$this->required_plugins_active()) return;
 
 		// set default values
 		$this->notification_days = explode(',', get_option('notification_days', implode(',', $this->notification_days)));
@@ -52,6 +55,22 @@ class PMPro_Renewals
 		add_action('pmpro_membership_post_membership_expiry', array($this, 'pmpro_membership_post_membership_expiry'), 10, 2);
 
 		add_action('admin_menu', array($this, 'renewals_menu'));
+	}
+
+	public static function required_plugins_active()
+	{
+		$status = true;
+		include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
+		foreach (self::$required_plugins as $name => $plugin) {
+			if (is_plugin_active($plugin)) continue;
+			?>
+			<div class="error">
+				<p>PMPro Renewals plugin requires <strong><?php echo $name ?></strong> plugin to be installed and activated</p>
+			</div>
+			<?php
+			$status = false;
+		}
+		return $status;
 	}
 
 	function create_lapsed_member_roles()
@@ -69,11 +88,7 @@ class PMPro_Renewals
 
 	public static function plugin_activation()
 	{
-		// requires pmpro plugin
-		if (!function_exists('pmpro_init'))
-			return;
-
-		self::create_lapsed_member_roles();
+		self::required_plugins_active() and self::create_lapsed_member_roles();
 	}
 
 	function pmpro_cron_expiration_warnings()
