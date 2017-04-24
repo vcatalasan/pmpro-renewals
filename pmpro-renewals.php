@@ -53,7 +53,8 @@ class PMPro_Renewals
 		add_action('pmpro_cron_expiration_warnings', array($this, 'pmpro_cron_expiration_warnings'));
         add_filter('pmpro_send_expiration_warning_email', array($this, 'pmpro_send_expiration_warning_email'), 10, 2);
 		add_action('pmpro_membership_post_membership_expiry', array($this, 'pmpro_membership_post_membership_expiry'), 10, 2);
-
+        add_filter('pmpro_checkout_level', array($this, 'pmpro_checkout_level_specific_expiration'));
+        add_filter('pmpro_level_expiration_text', array($this, 'pmpro_calendar_expiration_text'), 10, 2);
 		add_action('admin_menu', array($this, 'renewals_menu'));
 	}
 
@@ -183,6 +184,58 @@ ORDER BY mu.enddate";
 	<?php
 	}
 
+    /*
+     *  For a level to expire on a certain date.
+     *  (Note, this will need to be tweaked to work with PayPal Standard.)
+     */
+    function pmpro_checkout_level_specific_expiration($level)
+    {
+        //ignore renewals (they will be pushed out one payment period)
+        //if (pmpro_hasMembershipLevel($level->id))
+        //    return $level;
+
+        //add to this array (level ID) => (expiration date in yyyy-mm-dd)
+        $nextyear = intval(date("Y")) + 1;
+        $custom_expirations = array("1" => $nextyear . "-01-01");
+
+        //needed below
+        $todays_date = current_time('timestamp');
+
+        //check the passed level against your array
+        foreach($custom_expirations as $level_id => $expiration_date)
+        {
+            //custom expiration?
+            if($level->id == $level_id)
+            {
+                //how many days until expiration?
+                $time_left = strtotime($expiration_date) - $todays_date;
+                if($time_left > 0)
+                {
+                    $days_left = ceil($time_left/(60*60*24));
+
+                    //update number and period
+                    $level->expiration_number = $days_left;
+                    $level->expiration_period = "Day";
+
+                    return $level;	//stop
+                }
+                else
+                {
+                    //expiration already here, don't let people signup
+                    $level = NULL;
+
+                    return $level; //stop
+                }
+            }
+        }
+
+        return $level;	//no change
+    }
+
+    function pmpro_calendar_expiration_text( $expiration_text, $level ) {
+        $nextyear = intval(date("Y")) + 1;
+        return "Membership expires on 01-01-$nextyear";
+    }
 }
 
 //load pmpro renewals plugin
