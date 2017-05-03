@@ -232,29 +232,30 @@ ORDER BY mu.enddate";
 
         $level->membership_prorate = $this->membership_prorate( $level );
   */
-        global $current_user;
-        $expiration_date = date('Y-m-d', pmpro_hasMembershipLevel( $level->id ) ? $current_user->membership_level->enddate : time() );
-        $new_expiration_date = date( 'Y-m-d', $this->new_expiration_date( $level ) );
-        $date1 = new DateTime( $expiration_date );
-        $date2 = new DateTime( $new_expiration_date );
-        $level->expiration_number = $date1->diff( $date2 )->format( '%a' );
-        $level->expiration_period = 'Day';
+        $renewal = $this->membership_renewal( $level );
+        // prorate calendar year 2017 only
+        if ( date('Y') == 2017 && $renewal['prorated'] ) {
+            $level->initial_payment = $renewal['prorated'];
+        }
 
-        return $level;
+        return $renewal['level'];
     }
 
     function pmpro_calendar_year_expiration_text( $expiration_text, $level ) {
-
         $renewal = $this->membership_renewal( $level );
         $expiration_date = date( 'm-d-Y', $renewal['new_expiration_date'] );
         $expiration_text = preg_replace( '/after [^.]+/i', "on $expiration_date", $expiration_text );
         return $expiration_text;
     }
 
-
     function pmpro_calendar_year_cost_text( $r, $level, $tags, $short ) {
         $renewal = $this->membership_renewal( $level );
-        return $r . $prorate ? " + prorated = {$prorate}" : '';
+        // prorate calendar year 2017 only
+        if ( date('Y') == 2017 && $renewal['prorated'] ) {
+            $dues = '&#36;' . $renewal['prorated'] . ' prorated';
+            $r = preg_replace( '/&#36;[^<]+/i', $dues, $r );
+        }
+        return $r;
     }
 
     function membership_renewal( $level ) {
@@ -262,24 +263,36 @@ ORDER BY mu.enddate";
         if ( isset( $current_user->membership_renewal ) )
             return $current_user->membership_renewal;
 
-        // calculate new expiration date
+        // set membership calendar date
+        $current_calendar_date = date( 'Y' ) . '-01-01';
+        $next_calendar_date = date( 'Y-m-d', strtotime( $current_calendar_date . '+1 Year' ) );
+
+        // set new expiration date
         $expiration_date = date('Y-m-d', pmpro_hasMembershipLevel( $level->id ) ? $current_user->membership_level->enddate : time() );
-        $new_expiration_date = date( 'Y', strtotime( $expiration_date . '+1 Year'))  . '-01-01';
+        $new_expiration_date = $expiration_date < $next_calendar_date ? $next_calendar_date : date( 'Y-m-d', strtotime( $next_calendar_date . '+1 Year' ));
+
+        // calculate membership dues
+        $prorated_date = date( 'Y' ) . '-10-01';
+        $dues = 0;
+        if ( $expiration_date < $prorated_date ) {
+            $dues = $this->membership_prorate( $expiration_date, $level->initial_payment );
+        } elseif ( $expiration_date < $next_calendar_date ) {
+            // update new expiration date to following year
+            $new_expiration_date = date( 'Y-m-d', strtotime( $new_expiration_date . '+1 Year' ) );
+        }
+
+        // set new level expiration
         $date1 = new DateTime( $expiration_date );
         $date2 = new DateTime( $new_expiration_date );
         $days_left = $date1->diff( $date2 )->format( '%a' );
 
-        // calculate membership dues
-
-        $dues = $this->membership_prorate( $expiration_date, $level->initial_payment );
-        $is_prorated = $dues < $level->initial_payment ? true : false;
+        $level->expiration_number = $days_left;
+        $level->expiration_period = 'Day';
 
         $current_user->membership_renewal = array(
             'new_expiration_date' => strtotime( $new_expiration_date ),
-            'new_expiration_number' => $days_left,
-            'new_expiration_period' => 'Day',
-            'new_membership' => $dues,
-            'is_prorated' => $is_prorated
+            'level' => $level,
+            'prorated' => $dues
         );
         return $current_user->membership_renewal;
     }
