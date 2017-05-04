@@ -15,6 +15,7 @@ class PMPro_Renewals
 	static $lapsed_member_role = array( 'id' => 'lapsed_member', 'name' => 'Lapsed Member');
 
 	var $notification_days = array(7, 14, 28);
+	var $membership_renewal = array();
 
 	private static $instance = null;
 
@@ -249,6 +250,8 @@ ORDER BY mu.enddate";
     }
 
     function pmpro_calendar_year_cost_text( $r, $level, $tags, $short ) {
+        if (is_admin()) return $r;
+
         $renewal = $this->membership_renewal( $level );
         // prorate calendar year 2017 only
         if ( date('Y') == 2017 && $renewal['prorated'] ) {
@@ -260,15 +263,18 @@ ORDER BY mu.enddate";
 
     function membership_renewal( $level ) {
         global $current_user;
-        if ( isset( $current_user->membership_renewal ) )
-            return $current_user->membership_renewal;
+
+        $level_id = intval( $level->id );
+
+        if ( isset( $this->membership_renewal[ $level_id ] ) )
+            return $this->membership_renewal[ $level_id ];
 
         // set membership calendar date
         $current_calendar_date = date( 'Y' ) . '-01-01';
         $next_calendar_date = date( 'Y-m-d', strtotime( $current_calendar_date . '+1 Year' ) );
 
         // set new expiration date
-        $expiration_date = date('Y-m-d', pmpro_hasMembershipLevel( $level->id ) ? $current_user->membership_level->enddate : time() );
+        $expiration_date = date('Y-m-d', pmpro_hasMembershipLevel( $level_id ) ? $current_user->membership_level->enddate : time() );
         $new_expiration_date = $expiration_date < $next_calendar_date ? $next_calendar_date : date( 'Y-m-d', strtotime( $next_calendar_date . '+1 Year' ));
 
         // calculate membership dues
@@ -289,12 +295,12 @@ ORDER BY mu.enddate";
         $level->expiration_number = $days_left;
         $level->expiration_period = 'Day';
 
-        $current_user->membership_renewal = array(
+        $this->membership_renewal[ $level_id ] = array(
             'new_expiration_date' => strtotime( $new_expiration_date ),
             'level' => $level,
             'prorated' => $dues
         );
-        return $current_user->membership_renewal;
+        return $this->membership_renewal[ $level_id ];
     }
 
     function membership_prorate( $expiration_date, $fees ) {
