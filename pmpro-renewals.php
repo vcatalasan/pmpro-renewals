@@ -2,8 +2,8 @@
 /*
 Plugin Name: PMPro Renewals
 Plugin URI: http://www.bscmanage.com/my-plugin/pmpro-renewals
-Description: Sends multiple expiration reminders and processes membership renewals
-Version: 1.0.0
+Description: Sends multiple expiration reminders and processes membership renewals using calendar year
+Version: 2.0.0
 License: MPL
 Author: Val Catalasan
 */
@@ -193,46 +193,6 @@ ORDER BY mu.enddate";
      */
     function pmpro_checkout_level_extend_memberships( $level )
     {
-        global $pmpro_msg, $pmpro_msgt;
-
-        /*
-        //does this level expire? are they an existing user of this level?
-        if(!empty($level) && !empty($level->expiration_number) && pmpro_hasMembershipLevel($level->id))
-        {
-            //get the current enddate of their membership
-            global $current_user;
-            $expiration_date = $current_user->membership_level->enddate;
-
-            //calculate days left
-            $todays_date = current_time('timestamp');
-            $time_left = $expiration_date - $todays_date;
-
-            //time left?
-            if($time_left > 0)
-            {
-                //convert to days and add to the expiration date (assumes expiration was 1 year)
-                $days_left = floor($time_left/(60*60*24));
-
-                //figure out days based on period
-                if($level->expiration_period == "Day")
-                    $total_days = $days_left + $level->expiration_number;
-                elseif($level->expiration_period == "Week")
-                    $total_days = $days_left + $level->expiration_number * 7;
-                elseif($level->expiration_period == "Month")
-                    $total_days = $days_left + $level->expiration_number * 30;
-                elseif($level->expiration_period == "Year")
-                    $total_days = $days_left + $level->expiration_number * 365;
-
-                //update number and period
-                $level->expiration_number = $total_days;
-                $level->expiration_period = "Day";
-            }
-        } else {
-
-        }
-
-        $level->membership_prorate = $this->membership_prorate( $level );
-  */
         $renewal = $this->membership_renewal( $level );
         // prorate calendar year 2017 only
         if ( date('Y') == 2017 && $renewal['prorated'] ) {
