@@ -274,18 +274,28 @@ ORDER BY mu.enddate";
         $next_calendar_date = date( 'Y-m-d', strtotime( $current_calendar_date . '+1 Year' ) );
 
         // set new expiration date
-        $expiration_date = date('Y-m-d', pmpro_hasMembershipLevel( $level_id ) ? $current_user->membership_level->enddate : time() );
+        $hasMembershipLevel = pmpro_hasMembershipLevel( $level_id );
+        $expiration_date = date('Y-m-d', $hasMembershipLevel ? $current_user->membership_level->enddate : time() );
         $new_expiration_date = $expiration_date < $next_calendar_date ? $next_calendar_date : date( 'Y-m-d', strtotime( $next_calendar_date . '+1 Year' ));
 
         // calculate membership dues
         $prorated_date = date( 'Y' ) . '-10-01';
         $dues = 0;
-        if ( $expiration_date < $prorated_date ) {
-            $dues = $this->membership_prorate( $expiration_date, $level->initial_payment );
-        } elseif ( $expiration_date < $next_calendar_date ) {
-            // update new expiration date to following year
-            $new_expiration_date = date( 'Y-m-d', strtotime( $new_expiration_date . '+1 Year' ) );
+        if ( $hasMembershipLevel ) {
+            // renew membership and prorate fees
+            if ( $expiration_date < $next_calendar_date ) {
+                $dues = $this->membership_prorate( $expiration_date, $level->initial_payment );
+            }
+        } else {
+            // new membership and prorate fees up-to-certain date
+            if ( $expiration_date < $prorated_date ) {
+                $dues = $this->membership_prorate( $expiration_date, $level->initial_payment );
+            } elseif ( $expiration_date < $next_calendar_date ) {
+                // update new expiration date to following year
+                $new_expiration_date = date( 'Y-m-d', strtotime( $new_expiration_date . '+1 Year' ) );
+            }
         }
+
 
         // set new level expiration
         $date1 = new DateTime( $expiration_date );
