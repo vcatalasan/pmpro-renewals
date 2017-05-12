@@ -256,13 +256,8 @@ ORDER BY mu.enddate";
             }
         }
 
-
         // set new level expiration
-        $date1 = new DateTime( $expiration_date );
-        $date2 = new DateTime( $new_expiration_date );
-        $days_left = $date1->diff( $date2 )->format( '%a' );
-
-        $level->expiration_number = $days_left;
+        $level->expiration_number = $this->days_left( $expiration_date, $new_expiration_date );
         $level->expiration_period = 'Day';
 
         $this->membership_renewal[ $level_id ] = array(
@@ -278,6 +273,12 @@ ORDER BY mu.enddate";
         $rate = $fees / 12;
         $diff = 13 - $expiration_month;
         return $diff ? 5 * round( $diff * $rate / 5 ) : 0;
+    }
+
+    function days_left( $start_date, $end_date ) {
+	    $date1 = new DateTime( $start_date );
+	    $date2 = new DateTime( $end_date );
+	    return $date1->diff( $date2 )->format( '%a' );
     }
 }
 
