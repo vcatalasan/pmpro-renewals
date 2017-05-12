@@ -194,11 +194,6 @@ ORDER BY mu.enddate";
     function pmpro_checkout_level_extend_memberships( $level )
     {
         $renewal = $this->membership_renewal( $level );
-        // prorate calendar year 2017 only
-        if ( date('Y') == 2017 && $renewal['prorated'] ) {
-            $level->initial_payment = $renewal['prorated'];
-        }
-
         return $renewal['level'];
     }
 
@@ -213,12 +208,11 @@ ORDER BY mu.enddate";
         if (is_admin()) return $r;
 
         $renewal = $this->membership_renewal( $level );
-        // prorate calendar year 2017 only
-        if ( date('Y') == 2017 && $renewal['prorated'] ) {
-            $dues = '&#36;' . $renewal['prorated'] . ' prorated';
-            $r = preg_replace( '/&#36;[^<]+/i', $dues, $r );
+        $dues = $r;
+        if ( !pmpro_hasMembershipLevel( $level->id ) || 'checkout' == $_REQUEST['form'] ) {
+            $dues = preg_replace( '/&#36;[^<]+/i', $renewal['prorated'], $r );
         }
-        return $r;
+        return $dues;
     }
 
     function membership_renewal( $level ) {
@@ -240,20 +234,30 @@ ORDER BY mu.enddate";
 
         // calculate membership dues
         $prorated_date = date( 'Y' ) . '-10-01';
-        $dues = 0;
+        $prorated = 0;
         if ( $hasMembershipLevel ) {
             // renew membership and prorate fees
             if ( $expiration_date < $next_calendar_date ) {
-                $dues = $this->membership_prorate( $expiration_date, $level->initial_payment );
+                $prorated = $this->membership_prorate( $expiration_date, $level->initial_payment );
             }
         } else {
             // new membership and prorate fees up-to-certain date
             if ( $expiration_date < $prorated_date ) {
-                $dues = $this->membership_prorate( $expiration_date, $level->initial_payment );
+                $prorated = $this->membership_prorate( $expiration_date, $level->initial_payment );
             } elseif ( $expiration_date < $next_calendar_date ) {
                 // update new expiration date to following year
                 $new_expiration_date = date( 'Y-m-d', strtotime( $new_expiration_date . '+1 Year' ) );
             }
+        }
+
+        // re-calculate dues with prorate only for calendar year 2017
+        $dues = null;
+        if ( date('Y') == 2017 && $prorated ) {
+            $annual = $level->initial_payment;
+            $total = $annual + $prorated;
+            $dues = "&#36;{$annual} annual + {$prorated} prorated = &#36;{$total}";
+	        $new_expiration_date = date( 'Y-m-d', strtotime( $new_expiration_date . '+1 Year' ) );
+	        $level->initial_payment = $total;
         }
 
         // set new level expiration
@@ -263,7 +267,7 @@ ORDER BY mu.enddate";
         $this->membership_renewal[ $level_id ] = array(
             'new_expiration_date' => strtotime( $new_expiration_date ),
             'level' => $level,
-            'prorated' => $dues
+            'prorated' => $dues,
         );
         return $this->membership_renewal[ $level_id ];
     }
