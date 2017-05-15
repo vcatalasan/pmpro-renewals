@@ -253,9 +253,11 @@ ORDER BY mu.enddate";
         // re-calculate dues with prorate only for calendar year 2017
         $dues = null;
         if ( date('Y') == 2017 && $prorated ) {
+            $current_year = date( 'Y', strtotime( $current_calendar_date ) );
+            $next_year = date( 'Y', strtotime( $next_calendar_date ));
             $annual = $level->initial_payment;
             $total = $annual + $prorated;
-            $dues = "&#36;{$annual} annual + {$prorated} prorated = &#36;{$total}";
+            $dues = "&#36;{$prorated} Prorated ({$current_year}) + &#36;{$annual} Annual ({$next_year}) = &#36;{$total}";
 	        $new_expiration_date = date( 'Y-m-d', strtotime( $new_expiration_date . '+1 Year' ) );
 	        $level->initial_payment = $total;
         }
