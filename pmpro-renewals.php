@@ -3,7 +3,7 @@
 Plugin Name: PMPro Renewals
 Plugin URI: http://www.bscmanage.com/my-plugin/pmpro-renewals
 Description: Sends multiple expiration reminders and processes membership renewals using calendar year
-Version: 2.1.0
+Version: 2.1.1
 License: MPL
 Author: Val Catalasan
 */
