@@ -56,7 +56,8 @@ class PMPro_Renewals
 		add_action('pmpro_membership_post_membership_expiry', array($this, 'pmpro_membership_post_membership_expiry'), 10, 2);
         add_filter('pmpro_checkout_level', array($this, 'pmpro_checkout_level_extend_memberships'), PHP_INT_MAX);
         add_filter('pmpro_level_expiration_text', array($this, 'pmpro_calendar_year_expiration_text'), PHP_INT_MAX, 2);
-        add_filter("pmpro_level_cost_text", array($this, 'pmpro_calendar_year_cost_text'), PHP_INT_MAX, 4);
+        add_filter('pmpro_level_cost_text', array($this, 'pmpro_calendar_year_cost_text'), PHP_INT_MAX, 4);
+		add_filter('pmpro_checkout_end_date', array($this, 'pmpro_checkout_end_date'), PHP_INT_MAX, 4);
 
 		add_action('admin_menu', array($this, 'renewals_menu'));
 	}
@@ -213,6 +214,10 @@ ORDER BY mu.enddate";
             $dues = preg_replace( '/&#36;[^<]+/i', $renewal['prorated'], $r );
         }
         return $dues;
+    }
+
+    function pmpro_checkout_end_date( $enddate, $user_id, $pmpro_level, $startdate ) {
+        return empty($this->membership_renewal[ $pmpro_level->id ]) ? $enddate : date('Y-m-d', $this->membership_renewal[ $pmpro_level->id ]['new_expiration_date'] );
     }
 
     function membership_renewal( $level ) {
