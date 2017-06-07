@@ -55,6 +55,7 @@ class PMPro_Renewals
         add_filter('pmpro_send_expiration_warning_email', array($this, 'pmpro_send_expiration_warning_email'), 10, 2);
 		add_action('pmpro_membership_post_membership_expiry', array($this, 'pmpro_membership_post_membership_expiry'), 10, 2);
         add_filter('pmpro_checkout_level', array($this, 'pmpro_checkout_level_extend_memberships'), PHP_INT_MAX);
+        add_filter('pmpro_ipnhandler_level', array($this, 'pmpro_checkout_level_extend_memberships'), PHP_INT_MAX);
         add_filter('pmpro_level_expiration_text', array($this, 'pmpro_calendar_year_expiration_text'), PHP_INT_MAX, 2);
         add_filter('pmpro_level_cost_text', array($this, 'pmpro_calendar_year_cost_text'), PHP_INT_MAX, 4);
 		add_filter('pmpro_checkout_end_date', array($this, 'pmpro_checkout_end_date'), PHP_INT_MAX, 4);
