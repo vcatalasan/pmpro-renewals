@@ -46,7 +46,7 @@ class PMPro_Renewals
 		if (!$this->required_plugins_active()) return;
 
 		// set default values
-		$this->notification_days = explode(',', get_option('notification_days', implode(',', $this->notification_days)));
+		$this->notification_days = explode(',', get_option('notification_days', '0'));
 
 		// remove existing expiration warning
 		remove_all_actions('pmpro_cron_expiration_warnings');
@@ -140,6 +140,8 @@ ORDER BY mu.enddate";
 
     function pmpro_send_expiration_warning_email($send_email, $user_id)
     {
+        if (@$this->notification_days[0] == 0) return false;
+
         // do not send email if notification has already been sent today
         $expiration_notice = date('Y-m-d', strtotime(get_user_meta($user_id, 'pmpro_expiration_notice', true)));
         $today = date('Y-m-d', current_time('timestamp'));
@@ -174,14 +176,18 @@ ORDER BY mu.enddate";
 	// show form
 	function renewals_page()
 	{
-		$_POST['update'] == 'Update' and $this->notification_days = $_POST['notification_days'] and update_option('notification_days', $this->notification_days);
+		if ($_POST['update'] == 'Update' && isset($_POST['notification_days'])) {
+			update_option('notification_days', $_POST['notification_days']);
+		    $this->notification_days = explode(',', $_POST['notification_days']);
+		}
+		$notification_days = implode(',', $this->notification_days);
 		?>
 		<div class="wrap">
 			<h2>Membership Renewal Settings</h2>
 			<form method="post">
 				<p>
 					<label>Notification days:</label>
-					<input type="text" name="notification_days" value="<?php echo get_option('notification_days', implode(',', $this->notification_days)) ?>" />
+					<input type="text" name="notification_days" value="<?php echo get_option('notification_days', $notification_days) ?>" />
 					<input type="submit" name="update" value="Update" />
 				</p>
 			</form>
